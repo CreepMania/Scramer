@@ -15,8 +15,7 @@ class ScraperWindow(object):
 
     # MainWindow = QtWidgets.QMainWindow()
 
-    def __init__(self, app, main_window):
-        self.scraper_instance = None
+    def __init__(self, main_window, app):
         self.app = app
         self.MainWindow = main_window
         self.MainWindow.setObjectName("Scraper")
@@ -101,8 +100,7 @@ class ScraperWindow(object):
     def _call_scraping(self):
         self.textBrowser.clear()
         self.progressBar.setValue(0)
-        self.scraper_instance = Scraper.Scraper(self.app, self.MainWindow)
-        self.scraper_instance.scrape()
+        self.app.scrape()
 
     def emptyPathErr(self):
         msg = QtWidgets.QMessageBox()
