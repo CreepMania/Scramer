@@ -3,6 +3,7 @@ import pandas as pd
 from tkinter.filedialog import *
 from bs4 import BeautifulSoup
 from WebRender import render
+from csv import writer
 
 
 class Scraper(object):
@@ -10,9 +11,8 @@ class Scraper(object):
     patent_list = []
 
     def __init__(self, sys_app, main_window):
-        from gui import ScraperWindow
         self.app = sys_app
-        self.ui_window = ScraperWindow(main_window, self)
+        self.ui_window = main_window
 
         try:
             self.csv_file = ReadFile(self.ui_window.get_filepath()).dataframe()
@@ -41,9 +41,9 @@ class Scraper(object):
             self.app.exec_()
 
     def _get_all_data(self):
-        data = {}
+        data = pd.DataFrame()
         for patent in self.patent_list:
-            data.update(patent.get_dataframe())
+            data = data.append(patent.get_dataframe())
         return data
 
     def _write_csv_file(self):
@@ -55,32 +55,33 @@ class Scraper(object):
         soup = self._get_next_soup()
         while soup is not None:
             data = {}
-            # print(self.csv_file.to_dict())
             temp = self.csv_file.to_dict()
             for key, value in temp.items():
-                value = str(value.get(self.index))
+                value = str(value.get(self.index - 1))
                 data[key] = value
+            # print(data)
             data['pdf link'] = self.get_pdf_link(soup)
             data['abstract'] = self._get_abstract(soup)
             data['claims'] = self._get_claims(soup)
             data['description'] = self._get_description(soup)
-            #print(data)
             patent = Patent(data)
+            patent.given_citations.get_given_citations(soup)
+            patent.received_citations.get_received_citations(soup)
             self.patent_list.append(patent)
             self.ui_window.iterateProgressBar()
             soup = self._get_next_soup()
 
         for patent in self.patent_list:
-            print(len(self.patent_list))
-            print(patent.patent_id)
-            patent.write_txt_files('/home/guillaume/PycharmProjects/Scrapper_OOP/TXT/', True)
-            patent.write_txt_files('/home/guillaume/PycharmProjects/Scrapper_OOP/TXT/', False)
+            patent.write_txt_files('/home/guillaume/PycharmProjects/Scraper_OOP/TXT/', True)
+            patent.write_txt_files('/home/guillaume/PycharmProjects/Scraper_OOP/TXT/', False)
+            patent.write_citations('/home/guillaume/PycharmProjects/Scraper_OOP/')
 
+        self._write_csv_file()
         self.ui_window.jobDone()
 
-    @staticmethod
-    def _download_pdf(url):
-        path = '/home/guillaume/PycharmProjects/Scrapper_OOP/PDF/'
+    def _download_pdf(self, url):
+        self.ui_window.add_text('Downloading pdf ...')
+        path = '/home/guillaume/PycharmProjects/Scraper_OOP/PDF/'
         os.makedirs(os.path.dirname(path), exist_ok=True)  # creates our destination folder
         request.urlretrieve(url, path + re.split('/', url)[-1])  # downloads our pdf
 
@@ -91,8 +92,7 @@ class Scraper(object):
                                class_='style-scope patent-result'):
             pdf_link.append(x['href'])
             url = pdf_link[-1]
-            self.ui_window.add_text('Downloading pdf ...')
-            # self._download_pdf(url) """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+            # self._download_pdf(url)
             return url
 
     @staticmethod
@@ -221,6 +221,9 @@ class Citations:
         except AttributeError:
             return None
 
+    def items(self):
+        return self.text.items()
+
 
 class Patent:
 
@@ -258,18 +261,20 @@ class Patent:
         }
 
     def get_dataframe(self):
-        return {
-            'id': self.patent_id,
-            'title': self.title,
-            'assignee': self.assignee,
-            'inventor/author': self.inventor,
-            'priority date': self.priority_date,
-            'filing/creation date': self.creation_date,
-            'publication date': self.publication_date,
-            'grant date': self.grant_date,
-            'link': self.link,
-            'pdf link': self.pdf_link
-        }
+        return pd.DataFrame(
+            {
+                'id': self.patent_id,
+                'title': self.title,
+                'assignee': self.assignee,
+                'inventor/author': self.inventor,
+                'priority date': self.priority_date,
+                'filing/creation date': self.creation_date,
+                'publication date': self.publication_date,
+                'grant date': self.grant_date,
+                'link': self.link,
+                'pdf link': self.pdf_link
+            }
+        )
 
     def write_txt_files(self, path, concatenated):
         text = self.all_text()
@@ -277,17 +282,55 @@ class Patent:
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(str(path) + str(self.patent_id) + '.txt', 'a') as txt_file:
                 for name, content in text.items():
-                    if not text[name]:
-                        txt_file.write(name + '\n' + text[name] + '\n')
+                    if content:
+                        txt_file.write(name + '\n' + content + '\n')
                 txt_file.close()
         else:
             for name, content in text.items():
-                os.makedirs(os.path.dirname(path + name + '/'), exist_ok=True)
-                with open(str(path) + '/' + str(name) + '/' + str(name) + '_' + str(self.patent_id) + '.txt',
-                          'a') as txt_file:
-                    if not content:
+                if content:
+                    os.makedirs(os.path.dirname(path + name + '/'), exist_ok=True)
+                    with open(str(path) + '/' + str(name) + '/' + str(name) + '_' + str(self.patent_id) + '.txt',
+                              'a') as txt_file:
                         txt_file.write(name + '\n' + content + '\n')
-                    txt_file.close()
+                        txt_file.close()
+
+    def write_given_citations(self, path):
+
+        exists = os.path.isfile(path + 'given_citations.csv')
+        with open(path + 'given_citations.csv', 'a') as citation_file:
+
+            write = writer(citation_file)
+            iter_citations = self.given_citations.items()
+
+            if not exists:
+                write.writerow(['SOURCE', 'TARGET'])
+
+            for citing, value in iter_citations:
+                if citing != 'SOURCE':
+                    for cited in value:
+                        write.writerow([citing, cited])  # the citing patent is the scraped patent
+        citation_file.close()
+
+    def write_received_citations(self, path):
+
+        exists = os.path.isfile(path + 'received_citations.csv')
+        with open(path + 'received_citations.csv', 'a') as citation_file:
+
+            write = writer(citation_file)
+            iter_citations = self.received_citations.items()
+
+            if not exists:
+                write.writerow(['SOURCE', 'TARGET'])
+
+            for cited, value in iter_citations:
+                if cited != 'SOURCE':
+                    for citing in value:
+                        write.writerow([citing, cited])  # the cited patent is the scraped patent
+        citation_file.close()
+
+    def write_citations(self, path):
+        self.write_given_citations(path)
+        self.write_received_citations(path)
 
 
 class ReadFile:

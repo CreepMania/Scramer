@@ -7,16 +7,16 @@
 # WARNING! All changes made in this file will be lost!
 
 from PyQt5 import QtCore, QtWidgets
-from sys import argv
 import Scraper
+from multiprocessing.dummy import Pool as ThreadPool
+import threading
 
 
 class ScraperWindow(object):
 
-    # MainWindow = QtWidgets.QMainWindow()
-
     def __init__(self, main_window, app):
         self.app = app
+        self.scraper_instance = None
         self.MainWindow = main_window
         self.MainWindow.setObjectName("Scraper")
         self.MainWindow.resize(700, 500)
@@ -100,7 +100,9 @@ class ScraperWindow(object):
     def _call_scraping(self):
         self.textBrowser.clear()
         self.progressBar.setValue(0)
-        self.app.scrape()
+        self.scraper_instance = Scraper.Scraper(self.app, self)
+        self.scraper_instance.scrape()
+
 
     def emptyPathErr(self):
         msg = QtWidgets.QMessageBox()
