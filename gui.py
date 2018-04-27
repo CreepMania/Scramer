@@ -8,11 +8,15 @@
 
 from PyQt5 import QtCore, QtWidgets
 import Scraper
-from multiprocessing.dummy import Pool as ThreadPool
-import threading
+from contextlib2 import suppress
+
+
+# from multiprocessing.dummy import Pool as ThreadPool
+# import threading
 
 
 class ScraperWindow(object):
+    closing = QtCore.pyqtSignal()
 
     def __init__(self, main_window, app):
         self.app = app
@@ -21,6 +25,12 @@ class ScraperWindow(object):
         self.MainWindow.setObjectName("Scraper")
         self.MainWindow.resize(700, 500)
         self.MainWindow.setMinimumSize(QtCore.QSize(700, 500))
+
+        qt_rectangle = self.MainWindow.frameGeometry()
+        center_point = QtWidgets.QDesktopWidget().availableGeometry().center()
+        qt_rectangle.moveCenter(center_point)
+        self.MainWindow.move(qt_rectangle.topLeft())
+
         self.centralWidget = QtWidgets.QWidget(self.MainWindow)
         self.centralWidget.setObjectName("centralWidget")
         self.verticalLayout = QtWidgets.QVBoxLayout(self.centralWidget)
@@ -75,10 +85,10 @@ class ScraperWindow(object):
         self.menuFile.addAction(self.actionOpen_File)
         self.menuBar.addAction(self.menuFile.menuAction())
 
-        self._retranslateUi()
+        self._retranslate_ui()
         QtCore.QMetaObject.connectSlotsByName(self.MainWindow)
 
-    def _retranslateUi(self):
+    def _retranslate_ui(self):
         _translate = QtCore.QCoreApplication.translate
         self.MainWindow.setWindowTitle(_translate("MainWindow", "Scraper"))
         self.label.setText(_translate("MainWindow", "File Name:"))
@@ -100,49 +110,72 @@ class ScraperWindow(object):
     def _call_scraping(self):
         self.textBrowser.clear()
         self.progressBar.setValue(0)
-        self.scraper_instance = Scraper.Scraper(self.app, self)
-        self.scraper_instance.scrape()
+        with suppress(FileNotFoundError, IsADirectoryError, KeyError, EmptyPath):
+            self.scraper_instance = Scraper.Scraper(self.app, self)
+            self.scraper_instance.scrape()
 
-
-    def emptyPathErr(self):
+    @staticmethod
+    def _empty_path_err():
         msg = QtWidgets.QMessageBox()
         msg.setIcon(QtWidgets.QMessageBox.Critical)
         msg.setWindowTitle('Error')
         msg.setText('Empty File Path !')
         msg.exec_()
+        raise EmptyPath
 
-    def fileNotFoundErr(self):
+    @staticmethod
+    def file_not_found_err():
         msg = QtWidgets.QMessageBox()
         msg.setIcon(QtWidgets.QMessageBox.Critical)
         msg.setWindowTitle('Error')
         msg.setText('File Not Found !')
         msg.exec_()
+        raise FileNotFoundError
 
-    def jobDone(self):
+    def job_done(self):
         msg = QtWidgets.QMessageBox()
         msg.setWindowTitle('Done')
         msg.setText('Job Done !')
         msg.exec_()
         self.add_text('Done.')
 
-    def isADirectoryErr(self):
+    @staticmethod
+    def is_directory_err():
         msg = QtWidgets.QMessageBox()
         msg.setIcon(QtWidgets.QMessageBox.Critical)
         msg.setWindowTitle('Error')
         msg.setText('The path entered does not lead to a file !')
         msg.exec_()
+        raise IsADirectoryError
 
-    def setMaxProgressBar(self, value):
+    @staticmethod
+    def incompatible_data():
+        msg = QtWidgets.QMessageBox()
+        msg.setIcon(QtWidgets.QMessageBox.Critical)
+        msg.setWindowTitle('Incompatible Data')
+        msg.setText('The csv file entered is not compatible ! \n \nMake sure to have all the needed columns in your '
+                    'file and the first row empty !')
+        msg.exec_()
+        raise KeyError
+
+    def set_max_progress_bar(self, value):
         self.progressBar.setMaximum(value)
 
-    def iterateProgressBar(self):
+    def iterate_progress_bar(self):
         self.progressBar.setValue(self.progressBar.value() + 1)
 
     def get_filepath(self):
-        return self.filePath.text()
+        if not self.filePath.text():
+            self._empty_path_err()
+        else:
+            return self.filePath.text()
 
     def show(self):
         self.MainWindow.show()
 
-    def isVisible(self):
-        return self.MainWindow.isVisible()
+    def is_visible(self):
+        return self.MainWindow.is_visible()
+
+
+class EmptyPath(Exception):
+    pass

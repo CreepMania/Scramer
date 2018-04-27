@@ -16,12 +16,15 @@ class Scraper(object):
 
         try:
             self.csv_file = ReadFile(self.ui_window.get_filepath()).dataframe()
-            self.links = self.csv_file['result link']
-            self.ui_window.setMaxProgressBar(self.links.size)
+            try:
+                self.links = self.csv_file['result link']
+            except KeyError:
+                self.ui_window.incompatible_data()
+            self.ui_window.set_max_progress_bar(self.links.size)
         except FileNotFoundError:
-            self.ui_window.fileNotFoundErr()
+            self.ui_window.file_not_found_err()
         except IsADirectoryError:
-            self.ui_window.isADirectoryErr()
+            self.ui_window.is_directory_err()
 
     def _get_next_soup(self):
         if self.index == self.links.size:
@@ -37,7 +40,7 @@ class Scraper(object):
 
     def show(self):
         self.ui_window.show()
-        while self.ui_window.isVisible():
+        while self.ui_window.is_visible():
             self.app.exec_()
 
     def _get_all_data(self):
@@ -67,17 +70,16 @@ class Scraper(object):
             patent.given_citations.get_given_citations(soup)
             patent.received_citations.get_received_citations(soup)
             self.patent_list.append(patent)
-            self.ui_window.iterateProgressBar()
+            self.ui_window.iterate_progress_bar()
             soup = self._get_next_soup()
 
-        pd.DataFrame(self.patent_list).to_csv('/home/guillaume/PycharmProjects/Scraper_OOP/liste.csv')
         for patent in self.patent_list:
             patent.write_txt_files('/home/guillaume/PycharmProjects/Scraper_OOP/TXT/', True)
             patent.write_txt_files('/home/guillaume/PycharmProjects/Scraper_OOP/TXT/', False)
             patent.write_citations('/home/guillaume/PycharmProjects/Scraper_OOP/')
 
         self._write_csv_file()
-        self.ui_window.jobDone()
+        self.ui_window.job_done()
 
     def _download_pdf(self, url):
         self.ui_window.add_text('Downloading pdf ...')

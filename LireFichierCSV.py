@@ -52,7 +52,7 @@ def start_scraping(filename, window):
                     """
                     Fancy console printing
                     """
-                    window.setMaxProgressBar(
+                    window.set_max_progress_bar(
                         links.size)     # sets our progress bar maximum to the number of links to scrap
                     window.addText(
                         '[' + (str(index) if index >= 10 else '0' + str(index)) + '/'
@@ -273,7 +273,7 @@ def start_scraping(filename, window):
                         pass
 
                     index = index + 1
-                    window.iterateProgressBar()  # increase the percentage of the ui progress bar
+                    window.iterate_progress_bar()  # increase the percentage of the ui progress bar
 
             f.close()
 
@@ -405,15 +405,15 @@ def start_scraping(filename, window):
             """
             df = pd.DataFrame(data=dataframe)
             df.to_csv('dataFrame.csv', encoding='utf-8', index=False)
-            window.jobDone()
+            window.job_done()
 
         except FileNotFoundError:  # if the user chose a non existent file
-            window.fileNotFoundErr()
+            window._file_not_found_err()
 
         except IsADirectoryError:  # if the user chose a directory instead of a file
-            window.isADirectoryErr()
+            window.is_directory_err()
     else:
-        window.emptyPathErr()  # handles an empty path
+        window._empty_path_err()  # handles an empty path
 
 
 if __name__ == "__main__":

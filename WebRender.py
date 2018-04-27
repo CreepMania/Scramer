@@ -22,7 +22,7 @@ def render(url, app):
             req = QWebEngineHttpRequest(QtCore.QUrl(website_url))
             req.setUrl(QtCore.QUrl(website_url))
             req.setHeader(bytearray("header", 'utf-8'), bytearray(ua, 'utf-8'))
-            self.load(req)  # renders the page
+            self.load(req)
             while self.html is None:
                 self.app.processEvents(QtCore.QEventLoop.ExcludeUserInputEvents |
                                        QtCore.QEventLoop.ExcludeSocketNotifiers |
