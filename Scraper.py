@@ -27,7 +27,7 @@ class Scraper(object):
         if self.index == self.links.size:
             return None
         self.ui_window.add_text(
-            '[' + (str(self.index + 1) if self.index >= 10 else '0' + str(self.index + 1)) + '/'
+            '[' + (str(self.index + 1) if self.index + 1 >= 10 else '0' + str(self.index + 1)) + '/'
             + (str(self.links.size) if self.links.size >= 10 else '0' + str(self.links.size))
             + '], link: \t' + self.links[self.index]
         )
@@ -59,8 +59,7 @@ class Scraper(object):
             for key, value in temp.items():
                 value = str(value.get(self.index - 1))
                 data[key] = value
-            # print(data)
-            data['pdf link'] = self.get_pdf_link(soup)
+            data['pdf link'] = self._get_pdf_link(soup)
             data['abstract'] = self._get_abstract(soup)
             data['claims'] = self._get_claims(soup)
             data['description'] = self._get_description(soup)
@@ -71,6 +70,7 @@ class Scraper(object):
             self.ui_window.iterateProgressBar()
             soup = self._get_next_soup()
 
+        pd.DataFrame(self.patent_list).to_csv('/home/guillaume/PycharmProjects/Scraper_OOP/liste.csv')
         for patent in self.patent_list:
             patent.write_txt_files('/home/guillaume/PycharmProjects/Scraper_OOP/TXT/', True)
             patent.write_txt_files('/home/guillaume/PycharmProjects/Scraper_OOP/TXT/', False)
@@ -85,7 +85,8 @@ class Scraper(object):
         os.makedirs(os.path.dirname(path), exist_ok=True)  # creates our destination folder
         request.urlretrieve(url, path + re.split('/', url)[-1])  # downloads our pdf
 
-    def get_pdf_link(self, soup):
+    @staticmethod
+    def _get_pdf_link(soup):
         pdf_link = []
 
         for x in soup.find_all(href=re.compile('https://patentimages.'),
@@ -255,9 +256,9 @@ class Patent:
 
     def all_text(self):
         return {
-            'CLAIMS': self.claims,
+            'ABSTRACT': self.abstract,
             'DESCRIPTION': self.description,
-            'ABSTRACT': self.abstract
+            'CLAIMS': self.claims
         }
 
     def get_dataframe(self):
@@ -278,13 +279,14 @@ class Patent:
 
     def write_txt_files(self, path, concatenated):
         text = self.all_text()
-        if concatenated is False:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(str(path) + str(self.patent_id) + '.txt', 'a') as txt_file:
-                for name, content in text.items():
-                    if content:
+
+        if concatenated is True:
+            for name, content in text.items():
+                if content:
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(str(path) + str(self.patent_id) + '.txt', 'a') as txt_file:
                         txt_file.write(name + '\n' + content + '\n')
-                txt_file.close()
+                    txt_file.close()
         else:
             for name, content in text.items():
                 if content:
